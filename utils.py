@@ -1,0 +1,106 @@
+import numpy as np 
+import gsd.hoomd
+import numpy as np
+
+
+def unwrap2D(job):
+    #open GSD file
+     with gsd.hoomd.open(job.fn('trajectory.gsd'), 'r') as traj:
+        #calculate msd 
+        box = traj[0].configuration.box
+        N = traj[0].particles.N
+        nframes = len(traj)
+
+        A = np.zeros((nframes, N, 3))          #creates an array of zeroes of dimension (Nframes, Nparticles, 3D)
+        B = np.zeros((nframes, N, 3), dtype = np.int32)            #creates an array of zeroes of dimension (Nframes, Nparticles, 3D) to store images
+
+        for i in range(nframes):
+            A[i] = traj[i].particles.position
+            B[i] = traj[i].particles.image
+
+
+        A = A + (B * box[0])
+        A[:, :, 2] = 0
+
+     return nframes, N, box, A 
+#works for square boxes TODO: update it, use a box matrix to make it work for any arbitrary box 
+
+def unwrap3D(job):
+    #open GSD file
+     with gsd.hoomd.open(job.fn('trajectory.gsd'), 'r') as traj:
+        #calculate msd 
+        box = traj[0].configuration.box
+        N = traj[0].particles.N
+
+        A = np.zeros((len(traj), N, 3))          #creates an array of zeroes of dimension (Nframes, Nparticles, 3D)
+        B = np.zeros((len(traj), N, 3), dtype = np.int32)            #creates an array of zeroes of dimension (Nframes, Nparticles, 3D) to store images
+
+        for i in range(len(traj)):
+            A[i] = traj[i].particles.position
+            B[i] = traj[i].particles.image
+
+
+        A = A + (B * box[0])
+
+     return nframes, N, box, A 
+#works for square boxes TODO: update it, use a box matrix to make it work for any arbitrary box 
+
+def MSD_2D(job):
+    _ , _, _, Positions = unwrap2D(job)
+
+    #calculate displacements
+    displacements = Positions - Positions[0]
+
+    #calculates the msd
+    msd = np.mean(np.linalg.norm(displacements, axis = 2)**2, axis=1)
+
+     return msd
+    
+
+def cr_disp(job):
+    _, _, _, Positions = unwrap2D(job)
+
+    #calculate displacements
+    displacements = Positions - Positions[0]
+
+    #compute neighbor indices using voronoi tesselation
+    voro = freud.locality.Voronoi()
+    voro.compute((box, A[0]))
+    nlist = voro.nlist
+    neighbor_indices = []
+    i = 0
+    for j in range(N):
+        templist = []
+        while (i < len(nlist.query_point_indices)) and (nlist.query_point_indices[i] == j):
+            templist.append(nlist.point_indices[i])
+            i+=1
+        neighbor_indices.append((templist))
+    
+    # initialize cage_disp as zeros
+    cage_disp = np.zeros_like(displacements)  # same shape (Nframes, N, 3)
+    
+    # loop over particles to find average displacements of their respective cages
+    for j in range(N):
+        neighbors = neighbor_indices[j]
+        if len(neighbors) > 0:
+            # get displacements of neighbors: shape (Nframes, len(neighbors), 3)
+            neighbor_disp = displacements[:, neighbors, :]
+            # take mean along neighbors axis
+            mean_neighbor_disp = np.mean(neighbor_disp, axis=1)  # shape (Nframes, 3)
+            # store
+            cage_disp[:, j, :] = mean_neighbor_disp
+        else:
+            # if no neighbors, keep as zeros or you could set to np.nan
+            pass
+
+
+    cr_disp = (displacements - cage_disp)
+
+    return cr_disp
+
+def cr_msd(job):
+    cr_disp = cr_disp(job)
+    crmsd = np.mean(np.linalg.norm(cr_disp, axis = 2)**2, axis=1)
+
+    return crmsd
+    
