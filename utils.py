@@ -1,6 +1,8 @@
-import numpy as np 
+import freud
 import gsd.hoomd
+import matplotlib.pyplot as plt
 import numpy as np
+import signac
 
 
 def unwrap2D(job):
@@ -54,18 +56,18 @@ def MSD_2D(job):
     #calculates the msd
     msd = np.mean(np.linalg.norm(displacements, axis = 2)**2, axis=1)
 
-     return msd
+    return msd
     
 
 def cr_disp(job):
-    _, _, _, Positions = unwrap2D(job)
+    _, N, box, Positions = unwrap2D(job)
 
     #calculate displacements
     displacements = Positions - Positions[0]
 
     #compute neighbor indices using voronoi tesselation
     voro = freud.locality.Voronoi()
-    voro.compute((box, A[0]))
+    voro.compute((box, Positions[0]))
     nlist = voro.nlist
     neighbor_indices = []
     i = 0
@@ -94,13 +96,13 @@ def cr_disp(job):
             pass
 
 
-    cr_disp = (displacements - cage_disp)
+    crdisp = (displacements - cage_disp)
 
-    return cr_disp
+    return crdisp
 
 def cr_msd(job):
-    cr_disp = cr_disp(job)
-    crmsd = np.mean(np.linalg.norm(cr_disp, axis = 2)**2, axis=1)
+    crdisp = cr_disp(job)
+    crmsd = np.mean(np.linalg.norm(crdisp, axis = 2)**2, axis=1)
 
     return crmsd
     
