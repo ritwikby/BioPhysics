@@ -60,7 +60,7 @@ def MSD_2D(job):
     
 
 def cr_disp(job):
-    _, N, box, Positions = unwrap2D(job)
+    nframes, N, box, Positions = unwrap2D(job)
 
     #calculate displacements
     displacements = Positions - Positions[0]
@@ -98,11 +98,39 @@ def cr_disp(job):
 
     crdisp = (displacements - cage_disp)
 
-    return crdisp
+    return nframes, N, box, crdisp
 
 def cr_msd(job):
-    crdisp = cr_disp(job)
+    _, _, _, crdisp = cr_disp(job)
     crmsd = np.mean(np.linalg.norm(crdisp, axis = 2)**2, axis=1)
 
     return crmsd
+
+def cr_sisf(job, length):
+    nframes, N, box, crdisp = cr_disp(job)
+
+    disp2D = crdisp[:,:,:2]
+
+    k_mag = 2 * np.pi / length
+
+    # Generate angles evenly spaced from 0 to 2pi
+    angles = np.linspace(0, 2*np.pi, 10, endpoint=False)
+
+
+    k_vectors = np.array([
+        [k_mag * np.cos(theta), k_mag * np.sin(theta)]
+        for theta in angles
+    ])
+
+    sisf = np.zeros(nframes)
+    M = len(k_vectors)
+
+    for i in range(nframes):
+        tot = 0
+        for j in range(N):
+            for k in range(M):
+                tot +=  np.cos(np.dot(k_vectors[k], disp2D[i][j]))
+        sisf[i] = (tot / (N * M))
+
+    return sisf
     
