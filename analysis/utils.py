@@ -123,14 +123,15 @@ def cr_sisf(job, length):
     ])
 
     sisf = np.zeros(nframes)
-    M = len(k_vectors)
 
     for i in range(nframes):
-        tot = 0
-        for j in range(N):
-            for k in range(M):
-                tot +=  np.cos(np.dot(k_vectors[k], disp2D[i][j]))
-        sisf[i] = (tot / (N * M))
+        # Vectorized dot product: (N, 2) dot (2, M) -> (N, M)
+        projections = np.dot(disp2D[i], k_vectors.T)
+
+        # Cosine applied elementwise (N, M)
+        cos_vals = np.cos(projections)
+
+        # Average over both particles (axis=0) and wave vectors (axis=1)
+        sisf[i] = np.mean(cos_vals)
 
     return sisf
-    
